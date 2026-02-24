@@ -389,7 +389,6 @@ extern "C" {
         bool only_copy;                       // only copy tensors - ftype, allow_requantize and quantize_output_tensor are ignored
         bool pure;                            // quantize all tensors to the default type
         bool keep_split;                      // quantize to the same number of shards
-        bool dry_run;                         // calculate and show the final quantization size without performing quantization
         void * imatrix;                       // pointer to importance matrix data
         void * kv_overrides;                  // pointer to vector containing overrides
         void * tensor_types;                  // pointer to vector containing tensor types
@@ -1442,6 +1441,13 @@ extern "C" {
     // 4. if no tokens are left -> pick EOT
     //
     LLAMA_API struct llama_sampler * llama_sampler_init_infill(const struct llama_vocab * vocab);
+
+    // ADD THIS DECLARATION:
+    LLAMA_API struct llama_sampler * llama_sampler_init_pos_ban(int32_t n_max, llama_token token_id);
+
+    // Returns the seed used by the sampler if applicable, LLAMA_DEFAULT_SEED otherwise
+    LLAMA_API uint32_t llama_sampler_get_seed(const struct llama_sampler * smpl);
+    
 
     // Returns the seed used by the sampler if applicable, LLAMA_DEFAULT_SEED otherwise
     LLAMA_API uint32_t llama_sampler_get_seed(const struct llama_sampler * smpl);
