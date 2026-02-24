@@ -3883,3 +3883,80 @@ void llama_perf_sampler_reset(struct llama_sampler * chain) {
     ctx->t_sample_us = 0;
     ctx->n_sample    = 0;
 }
+
+// ============================================================
+// START: Custom Positional Ban Sampler (Corrected)
+// ============================================================
+
+struct llama_sampler_pos_ban {
+    int32_t n_pos;      // Current count of generated tokens
+    int32_t n_max;      // Maximum tokens to ban for (e.g., 3)
+    llama_token token_id; // Token ID to ban
+};
+
+static const char * llama_sampler_pos_ban_name(const struct llama_sampler * /*smpl*/) {
+    return "pos_ban";
+}
+
+// We now do the banning AND the counting inside apply
+static void llama_sampler_pos_ban_apply(struct llama_sampler * smpl, llama_token_data_array * cur_p) {
+    auto * ctx = (llama_sampler_pos_ban *) smpl->ctx;
+
+    // 1. Ban the token if we are in the first n_max tokens
+    if (ctx->n_pos < ctx->n_max) {
+        for (size_t i = 0; i < cur_p->size; ++i) {
+            if (cur_p->data[i].id == ctx->token_id) {
+                // Hard ban (effectively -infinity)
+                cur_p->data[i].logit = -1e20f;
+                break; 
+            }
+        }
+    }
+
+    // 2. Increment the position counter for the next step.
+    // apply() is called once per token generation step.
+    ctx->n_pos++;
+}
+
+// Reset is called at the start of a new generation turn
+static void llama_sampler_pos_ban_reset(struct llama_sampler * smpl) {
+    auto * ctx = (llama_sampler_pos_ban *) smpl->ctx;
+    ctx->n_pos = 0;
+}
+
+static struct llama_sampler * llama_sampler_pos_ban_clone(const struct llama_sampler * smpl) {
+    const auto * ctx = (const llama_sampler_pos_ban *) smpl->ctx;
+    return llama_sampler_init_pos_ban(ctx->n_max, ctx->token_id);
+}
+
+static void llama_sampler_pos_ban_free(struct llama_sampler * smpl) {
+    delete (llama_sampler_pos_ban *) smpl->ctx;
+}
+
+static struct llama_sampler_i llama_sampler_pos_ban_i = {
+    /* .name              = */ llama_sampler_pos_ban_name,
+    /* .accept            = */ nullptr, // Not needed anymore
+    /* .apply             = */ llama_sampler_pos_ban_apply,
+    /* .reset             = */ llama_sampler_pos_ban_reset,
+    /* .clone             = */ llama_sampler_pos_ban_clone,
+    /* .free              = */ llama_sampler_pos_ban_free,
+    /* .backend_init      = */ nullptr,
+    /* .backend_accept    = */ nullptr,
+    /* .backend_apply     = */ nullptr,
+    /* .backend_set_input = */ nullptr,
+};
+
+struct llama_sampler * llama_sampler_init_pos_ban(int32_t n_max, llama_token token_id) {
+    return llama_sampler_init(
+        /* .iface = */ &llama_sampler_pos_ban_i,
+        /* .ctx   = */ new llama_sampler_pos_ban {
+            /* .n_pos    = */ 0,
+            /* .n_max    = */ n_max,
+            /* .token_id = */ token_id,
+        }
+    );
+}
+
+// ============================================================
+// END: Custom Positional Ban Sampler
+// ============================================================
