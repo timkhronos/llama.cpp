@@ -186,6 +186,20 @@ struct common_sampler * common_sampler_init(const struct llama_model * model, st
     llama_sampler * grmr = nullptr;
     llama_sampler * chain = llama_sampler_chain_init(lparams);
 
+    // ============================================================
+    // HACK: Ban 'I' (Token ID 40) for the first 3 tokens
+    // NOTE: Verify that Token ID 40 is indeed 'I' in your specific model!
+    //       (For Llama 3, 40 is usually 'I'. For Llama 2 it might be different)
+    // ============================================================
+    {
+        const llama_token ban_token_id = 40; 
+        const int32_t ban_duration     = 2;
+        
+        llama_sampler_chain_add(chain, llama_sampler_init_pos_ban(ban_duration, ban_token_id));
+    }
+
+    // ... existing code ...
+
     std::vector<llama_sampler *> samplers;
 
     if (params.grammar.compare(0, 11, "%llguidance") == 0) {
