@@ -291,7 +291,9 @@ void server_models::load_models() {
     for (const auto & [name, inst] : mapping) {
         std::string val;
         if (inst.meta.preset.get_option(COMMON_ARG_PRESET_LOAD_ON_STARTUP, val)) {
-            models_to_load.push_back(name);
+            if (common_arg_utils::is_truthy(val)) {
+                models_to_load.push_back(name);
+            }
         }
     }
     if ((int)models_to_load.size() > base_params.models_max) {
@@ -697,11 +699,15 @@ server_http_res_ptr server_models::proxy_request(const server_http_req & req, co
         mapping[name].meta.last_used = ggml_time_ms();
     }
     SRV_INF("proxying request to model %s on port %d\n", name.c_str(), meta->port);
+    std::string proxy_path = req.path;
+    if (!req.query_string.empty()) {
+        proxy_path += '?' + req.query_string;
+    }
     auto proxy = std::make_unique<server_http_proxy>(
             method,
             CHILD_ADDR,
             meta->port,
-            req.path,
+            proxy_path,
             req.headers,
             req.body,
             req.should_stop,
