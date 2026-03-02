@@ -2399,10 +2399,17 @@ private:
                             SLT_WRN(slot, "n_past was set to %d\n", n_past);
                         }
 
-                        slot.n_prompt_tokens_cache     = n_past;
                         slot.n_prompt_tokens_processed = 0;
-
-                        slot.prompt.tokens.keep_first(n_past);
+                        if (slot.prompt.tokens.has_mtmd) {
+                            const int n_tokens_keep = (int)slot.prompt.tokens.tokens_up_to_pos(n_past-1);
+                            slot.n_prompt_tokens_cache = std::min(n_tokens_keep, (int)slot.task->n_tokens());
+                            SLT_WRN(slot, "We are in non recovery mtmd path, n_prompt_tokens_cache was set to %d\n", slot.n_prompt_tokens_cache);
+                            slot.prompt.tokens.keep_first(slot.n_prompt_tokens_cache);
+                        } else {
+                            slot.n_prompt_tokens_cache = std::min(n_past, (int)slot.task->n_tokens());
+                            SLT_WRN(slot, "We are in non recovery text path, n_prompt_tokens_cache was set to %d\n", slot.n_prompt_tokens_cache);
+                            slot.prompt.tokens.keep_first(slot.n_prompt_tokens_cache);
+                        }
 
                         // send initial 0% progress update if needed
                         // this is to signal the client that the request has started processing
@@ -2445,8 +2452,9 @@ private:
                                     SLT_WRN(slot, "recovered recurrent state from checkpoint (pos_min = %d, pos_max = %d, n_tokens = %d), n_past: %d -> %d\n",
                                             it->pos_min, it->pos_max, it->n_tokens_cached, slot.prompt.n_tokens(), n_past_new);
 
-                                    slot.prompt.tokens.keep_first(n_past_new);
-                                    slot.n_prompt_tokens_cache = n_past_new;
+                                    slot.prompt.tokens.keep_first(std::min(n_past_new, (int)slot.prompt.n_tokens()));
+                                    SLT_WRN(slot, "We are in non recovery text path, n_prompt_tokens_cache was set to %d\n", slot.n_prompt_tokens_cache);
+                                    slot.n_prompt_tokens_cache = std::min(n_past_new, (int)slot.prompt.n_tokens());
                                     recovered = true;
                                     break;
                                 }
@@ -2543,7 +2551,7 @@ private:
                         slot.n_prompt_tokens_processed++;
 
                         // process the last few tokens of the prompt separately in order to allow for a checkpoint to be created.
-                        const int n_last = std::min(n_batch, 512);
+                        const int n_last = std::min(n_batch, 1);
                         if (do_checkpoint && slot.task->n_tokens() == slot.prompt.n_tokens() + n_last) {
                             break;
                         }
@@ -2594,7 +2602,7 @@ private:
                             auto & cur = slot.prompt.checkpoints.emplace_back(server_prompt_checkpoint{
                                 /*.pos_min          = */ pos_min,
                                 /*.pos_max          = */ pos_max,
-                                /*.n_tokens_cached  = */ slot.prompt.n_tokens(),
+                                /*.n_tokens_cached  = */ (int)slot.prompt.tokens.tokens_up_to_pos(pos_max), 
                                 /*.data             = */ std::vector<uint8_t>(checkpoint_size),
                             });
 
