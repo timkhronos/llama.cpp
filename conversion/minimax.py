@@ -134,7 +134,7 @@ class MiniMaxM3VisionModel(MmprojModel):
                 tensor = self._permute_vit_qk(tensor, new_name)
             yield new_name, tensor
             
-    def _permute_vit_qk(self, t: "Tensor") -> "Tensor":
+    def _permute_vit_qk(self, t: "Tensor", new_name: str) -> "Tensor":
         n_head = self.hparams_vision["num_attention_heads"]
         d_head = t.shape[0] // n_head
         axis_dim = 2 * ((2 * (d_head // 2) // 3) // 2)
