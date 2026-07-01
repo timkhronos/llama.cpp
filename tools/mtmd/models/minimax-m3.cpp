@@ -7,7 +7,7 @@ ggml_tensor * clip_graph_minimax_m3::apply_rope(
     const int64_t Hn  = x->ne[1];
     const int64_t P   = x->ne[2];
     const size_t  es  = ggml_element_size(x);
-    const int     dh  = (int) x->ne[0]; 
+    const int     dh  = (int) x->ne[0];
     const int     axd = 2 * ((2 * (dh / 2) / 3) / 2);
     
     GGML_ASSERT(x->nb[0] == es);
@@ -26,8 +26,6 @@ ggml_tensor * clip_graph_minimax_m3::apply_rope(
     h = ggml_rope_ext(ctx0, h, pos_h, nullptr, axd, GGML_ROPE_TYPE_NEOX, 0, th, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
     w = ggml_rope_ext(ctx0, w, pos_w, nullptr, axd, GGML_ROPE_TYPE_NEOX, 0, th, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f);
     return ggml_concat(ctx0, ggml_concat(ctx0, ggml_concat(ctx0, t, h, 0), w, 0), pad, 0);
-    
-    
 }
 
 ggml_cgraph * clip_graph_minimax_m3::build() {
