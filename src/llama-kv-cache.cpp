@@ -328,9 +328,8 @@ llama_kv_cache::llama_kv_cache(
         const size_t memory_size_k = size_k_bytes();
         const size_t memory_size_v = size_v_bytes();
         const size_t memory_size_k_idx = size_k_idx_bytes();
-        
         const size_t memory_size_total = memory_size_k + memory_size_v + memory_size_k_idx;
-        
+
         if (memory_size_k_idx > 0) {
             LLAMA_LOG_INFO("%s: size = %7.2f MiB (%6u cells, %3d layers, %2u/%u seqs), K (%s): %7.2f MiB, V (%s): %7.2f MiB, K_idx (%s): %7.2f MiB\n", __func__,
                 (float)memory_size_total / (1024.0f * 1024.0f), kv_size, (int) layers.size(), n_seq_max, n_stream,
@@ -1223,7 +1222,7 @@ bool llama_kv_cache::get_can_shift() const {
     if (hparams.n_pos_per_embd() > 1) {
         return false;
     }
-    //shifting would leave k_idx stale
+    // shifting would leave k_idx stale
     for (const auto & layer : layers) {
         if (layer.k_idx) {
             return false;
@@ -2518,7 +2517,7 @@ bool llama_kv_cache::state_read_data(llama_io_read_i & io, uint32_t strm, uint32
 
     if (size_k_idx_bytes() > 0) {
         uint32_t has_k_idx_u32 = 0;
-        io.read_to(&has_k_idx_u32, sizeof(has_k_idx_u32));
+        io.read(&has_k_idx_u32, sizeof(has_k_idx_u32));
 
         if (has_k_idx_u32 != 1) {
             LLAMA_LOG_ERROR("%s: missing k_idx data in KV cache state\n", __func__);
@@ -2535,20 +2534,9 @@ bool llama_kv_cache::state_read_data(llama_io_read_i & io, uint32_t strm, uint32
             return false;
         }
 
-        const auto & dst_idxs = sinfo.idxs[dst_stream_idx];
-
-        if (dst_idxs.size() != cell_count) {
-            LLAMA_LOG_ERROR(
-                "%s: invalid k_idx slot count: got %zu, expected %u\n",
-                __func__, dst_idxs.size(), cell_count);
-            return false;
-        }
-
-        std::vector<uint8_t> tmp_buf;
-
         for (auto & layer : layers) {
             uint32_t layer_has_k_idx = 0;
-            io.read_to(&layer_has_k_idx, sizeof(layer_has_k_idx));
+            io.read(&layer_has_k_idx, sizeof(layer_has_k_idx));
 
             const uint32_t expected_layer_has_k_idx = layer.k_idx ? 1 : 0;
 
@@ -2566,7 +2554,7 @@ bool llama_kv_cache::state_read_data(llama_io_read_i & io, uint32_t strm, uint32
             GGML_ASSERT(layer.k_idx_stream[strm]);
 
             int32_t k_idx_type_i = -1;
-            io.read_to(&k_idx_type_i, sizeof(k_idx_type_i));
+            io.read(&k_idx_type_i, sizeof(k_idx_type_i));
 
             if (k_idx_type_i != (int32_t) layer.k_idx->type) {
                 LLAMA_LOG_ERROR(
@@ -2576,7 +2564,7 @@ bool llama_kv_cache::state_read_data(llama_io_read_i & io, uint32_t strm, uint32
             }
 
             uint64_t k_idx_size_row = 0;
-            io.read_to(&k_idx_size_row, sizeof(k_idx_size_row));
+            io.read(&k_idx_size_row, sizeof(k_idx_size_row));
 
             const uint64_t expected_k_idx_size_row = ggml_row_size(layer.k_idx->type, layer.k_idx->ne[0]);
 
@@ -2587,16 +2575,14 @@ bool llama_kv_cache::state_read_data(llama_io_read_i & io, uint32_t strm, uint32
                 return false;
             }
 
-            tmp_buf.resize((size_t) k_idx_size_row);
-
-            for (uint32_t i = 0; i < cell_count; ++i) {
-                io.read_to(tmp_buf.data(), (size_t) k_idx_size_row);
-
-                ggml_backend_tensor_set(
-                    layer.k_idx_stream[strm],
-                    tmp_buf.data(),
-                    (size_t) dst_idxs[i] * (size_t) k_idx_size_row,
-                    (size_t) k_idx_size_row);
+            if (cell_count) {
+                if (sinfo.is_contiguous()) {
+                    io.read_tensor(layer.k_idx_stream[strm], sinfo.head() * k_idx_size_row, cell_count * k_idx_size_row);
+                } else {
+                    for (uint32_t i = 0; i < cell_count; ++i) {
+                        io.read_tensor(layer.k_idx_stream[strm], sinfo.idxs[0][i] * k_idx_size_row, k_idx_size_row);
+                    }
+                }
             }
         }
     }
