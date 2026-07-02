@@ -327,11 +327,22 @@ llama_kv_cache::llama_kv_cache(
     {
         const size_t memory_size_k = size_k_bytes();
         const size_t memory_size_v = size_v_bytes();
-
-        LLAMA_LOG_INFO("%s: size = %7.2f MiB (%6u cells, %3d layers, %2u/%u seqs), K (%s): %7.2f MiB, V (%s): %7.2f MiB\n", __func__,
-                (float)(memory_size_k + memory_size_v) / (1024.0f * 1024.0f), kv_size, (int) layers.size(), n_seq_max, n_stream,
+        const size_t memory_size_k_idx = size_k_idx_bytes();
+        
+        const size_t memory_size_total = memory_size_k + memory_size_v + memory_size_k_idx;
+        
+        if (memory_size_k_idx > 0) {
+            LLAMA_LOG_INFO("%s: size = %7.2f MiB (%6u cells, %3d layers, %2u/%u seqs), K (%s): %7.2f MiB, V (%s): %7.2f MiB, K_idx (%s): %7.2f MiB\n", __func__,
+                (float)memory_size_total / (1024.0f * 1024.0f), kv_size, (int) layers.size(), n_seq_max, n_stream,
+                ggml_type_name(type_k), (float)memory_size_k / (1024.0f * 1024.0f),
+                ggml_type_name(type_v), (float)memory_size_v / (1024.0f * 1024.0f),
+                ggml_type_name(GGML_TYPE_F32), (float)memory_size_k_idx / (1024.0f * 1024.0f));
+        } else {
+            LLAMA_LOG_INFO("%s: size = %7.2f MiB (%6u cells, %3d layers, %2u/%u seqs), K (%s): %7.2f MiB, V (%s): %7.2f MiB\n", __func__,
+                (float)memory_size_total / (1024.0f * 1024.0f), kv_size, (int) layers.size(), n_seq_max, n_stream,
                 ggml_type_name(type_k), (float)memory_size_k / (1024.0f * 1024.0f),
                 ggml_type_name(type_v), (float)memory_size_v / (1024.0f * 1024.0f));
+        }
     }
 
     // TODO: refactor [TAG_KV_CACHE_SHARE_CELLS]
@@ -1896,6 +1907,18 @@ size_t llama_kv_cache::size_v_bytes() const {
     }
 
     return size_v_bytes;
+}
+
+size_t llama_kv_cache::size_k_idx_bytes() const {
+    size_t size_k_idx_bytes = 0;
+
+    for (const auto & layer : layers) {
+        if (layer.k_idx) {
+            size_k_idx_bytes += ggml_nbytes(layer.k_idx);
+        }
+    }
+
+    return size;
 }
 
 ggml_tensor * llama_kv_cache::build_rope_shift(
