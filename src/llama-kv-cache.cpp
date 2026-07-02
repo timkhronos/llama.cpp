@@ -2559,8 +2559,8 @@ bool llama_kv_cache::state_read_data(llama_io_read_i & io, uint32_t strm, uint32
 
             if (k_idx_size_row != expected_k_idx_size_row) {
                 LLAMA_LOG_ERROR(
-                    "%s: mismatched k_idx row size: got %" PRIu64 ", expected %" PRIu64 "\n",
-                    __func__, k_idx_size_row, expected_k_idx_size_row);
+                    "%s: mismatched k_idx row size: got %zu, expected %zu\n",
+                    __func__, (size_t) k_idx_size_row, (size_t) expected_k_idx_size_row);
                 return false;
             }
 
