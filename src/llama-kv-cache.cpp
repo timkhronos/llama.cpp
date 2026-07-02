@@ -889,6 +889,10 @@ bool llama_kv_cache::update(llama_context * lctx, bool do_shift, const stream_co
                 if (layer.v_stream[ssrc]) {
                     ggml_backend_tensor_copy(layer.v_stream[ssrc], layer.v_stream[sdst]);
                 }
+                if (layer.k_idx_stream[ssrc]) {
+                    GGML_ASSERT(layer.k_idx_stream[sdst]);
+                    ggml_backend_tensor_copy(layer.k_idx_stream[ssrc], layer.k_idx_stream[sdst]);
+                }
             }
         }
     }
@@ -1218,6 +1222,12 @@ bool llama_kv_cache::get_can_shift() const {
     }
     if (hparams.n_pos_per_embd() > 1) {
         return false;
+    }
+    //shifting would leave k_idx stale
+    for (const auto & layer : layers) {
+        if (layer.k_idx) {
+            return false;
+        }
     }
     return true;
 }
@@ -1918,7 +1928,7 @@ size_t llama_kv_cache::size_k_idx_bytes() const {
         }
     }
 
-    return size;
+    return size_k_idx_bytes;
 }
 
 ggml_tensor * llama_kv_cache::build_rope_shift(
