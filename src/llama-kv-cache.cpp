@@ -2524,17 +2524,7 @@ bool llama_kv_cache::state_read_data(llama_io_read_i & io, uint32_t strm, uint32
             return false;
         }
 
-        size_t dst_stream_idx = 0;
-        while (dst_stream_idx < sinfo.strm.size() && (uint32_t) sinfo.strm[dst_stream_idx] != strm) {
-            ++dst_stream_idx;
-        }
-
-        if (dst_stream_idx == sinfo.strm.size()) {
-            LLAMA_LOG_ERROR("%s: failed to find destination stream %u in slot info\n", __func__, strm);
-            return false;
-        }
-
-        for (auto & layer : layers) {
+        for (const auto & layer : layers) {
             uint32_t layer_has_k_idx = 0;
             io.read(&layer_has_k_idx, sizeof(layer_has_k_idx));
 
@@ -2586,6 +2576,7 @@ bool llama_kv_cache::state_read_data(llama_io_read_i & io, uint32_t strm, uint32
             }
         }
     }
+
     if (!this->v_trans) {
         for (const auto & layer : layers) {
             const uint32_t il = layer.il;
