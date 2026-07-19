@@ -263,6 +263,9 @@ private:
     // env: LLAMA_KV_CACHE_DEBUG
     int debug = 0;
 
+    // set when MSA is enabled
+    bool msa_strict_slots = false;
+
     // this is the SWA type of the cache - not to be confused with the model SWA type
     const llama_swa_type swa_type = LLAMA_SWA_TYPE_NONE;
 
