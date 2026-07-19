@@ -1148,6 +1148,15 @@ void llama_kv_cache::apply_ubatch(const slot_info & sinfo, const llama_ubatch & 
 
             const auto idx = sinfo.idxs[s][ii];
 
+            if (msa_strict_slots && (llama_pos) idx != ubatch.pos[i]) {
+                LLAMA_LOG_ERROR("%s: MSA slot/position invariant violated: "
+                        "writing pos %d into cell %u (stream %u). The indexer cache "
+                        "would desync and block selection would silently corrupt. "
+                        "This is a bug, please report it with reproduction steps.\n",
+                        __func__, ubatch.pos[i], idx, sinfo.strm[s]);
+                GGML_ABORT("MSA: slot != pos");
+            }
+
             if (!cells.is_empty(idx)) {
                 assert(cells.seq_count(idx) == 1);
 
