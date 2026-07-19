@@ -248,6 +248,7 @@ llama_kv_cache::llama_kv_cache(
             : nullptr;
         if (k_idx) {
             ggml_format_name(k_idx, "cache_k_idx_l%d", il);
+            msa_strict_slots = (n_stream == n_seq_max);
         }
 
         std::vector<ggml_tensor *> k_idx_stream;
@@ -1024,6 +1025,11 @@ llama_kv_cache::slot_info llama_kv_cache::find_slot(const llama_ubatch & ubatch,
         const auto & cells = v_cells[seq_to_stream[seq_id]];
 
         uint32_t head_cur = v_heads[seq_to_stream[seq_id]];
+
+        // MSA block selection assumes slot == logical position (append-only streams), which Head-based placement can technically violate after tail trims
+        if (msa_strict_slots) {
+            head_cur = 0;
+        }
 
         // if we have enough unused cells before the current head ->
         //   better to start searching from the beginning of the cache, hoping to fill it
