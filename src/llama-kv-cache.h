@@ -263,7 +263,7 @@ private:
     // env: LLAMA_KV_CACHE_DEBUG
     int debug = 0;
 
-    // set when MSA is enabled
+    // set when a k_idx (indexer) cache exists and the stream layout supports MSA (single seq, or one stream per seq)
     bool msa_strict_slots = false;
 
     // this is the SWA type of the cache - not to be confused with the model SWA type
